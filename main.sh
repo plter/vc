@@ -29,7 +29,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "[2/2] Run MeanVC2 voice conversion via audiocpp_cli"
+echo "[2/2] Run voice conversion via audiocpp_cli"
 "$AUDIOCPP_CLI" \
 --task vc \
 --model "$MODEL_PATH" \
