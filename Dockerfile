@@ -1,13 +1,15 @@
 FROM ubuntu:24.04
 
 RUN apt update
-RUN apt install -y ffmpeg
+
 RUN apt install -y language-pack-zh-hans
 RUN apt install -y curl
 RUN locale-gen zh_CN.UTF-8
 RUN update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8
 ENV LANG=zh_CN.UTF-8
 ENV LC_ALL=zh_CN.UTF-8
+
+RUN apt install -y python3 ffmpeg
 
 ENV AUDIO_CPP_VERSION=v0.9.1
 RUN mkdir -p /tcvc/apps
@@ -23,6 +25,6 @@ RUN curl -L -O https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf/resolve
 WORKDIR /work
 COPY audioref /tcvc/audioref
 ENV PATH=$PATH:/tcvc/apps/audiocpp
-COPY main.sh /tcvc
-RUN chmod +x /tcvc/main.sh
-ENTRYPOINT ["/tcvc/main.sh"]
+COPY main.py /tcvc
+RUN chmod +x /tcvc/main.py
+ENTRYPOINT ["/tcvc/main.py"]
