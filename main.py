@@ -15,19 +15,34 @@ import shutil
 import subprocess
 import sys
 
+
+def detect_cpu_threads():
+    """Best-effort count of CPU threads available to this process.
+
+    Prefers os.process_cpu_count() (Python 3.13+), then sched_getaffinity
+    (Linux; honors docker --cpuset / taskset affinity), then os.cpu_count().
+    """
+    if hasattr(os, "process_cpu_count"):
+        return os.process_cpu_count()
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0))
+    return os.cpu_count() or 1
+
+
 # Configuration section, modify these variables according to your environment
 AUDIOCPP_CLI = "/vc/apps/audiocpp/audiocpp_cli"
 MODEL_PATH = "/vc/models/vcmodel.gguf"
 REF_VOICE = "/vc/audioref/audio.wav"
 OUTPUT_FILE = "vc_out.wav"
+THREADS = detect_cpu_threads()  # audiocpp_cli --threads (CPU threads to use)
 
 # Split configuration
-SILENCE_NOISE = "-35dB"        # Volume threshold below which audio counts as silence
-SILENCE_MIN_DURATION = 0.6     # Minimum pause length (seconds) to trigger a split
-MIN_SEGMENT_DURATION = 1.0     # Segments shorter than this (seconds) get merged with neighbors
-WORK_DIR = "_vc_work"          # Temporary working directory (removed on exit unless KEEP_WORK=1)
+SILENCE_NOISE = "-35dB"  # Volume threshold below which audio counts as silence
+SILENCE_MIN_DURATION = 0.6  # Minimum pause length (seconds) to trigger a split
+MIN_SEGMENT_DURATION = 1.0  # Segments shorter than this (seconds) get merged with neighbors
+WORK_DIR = "_vc_work"  # Temporary working directory (removed on exit unless KEEP_WORK=1)
 
-SAMPLE_RATE = 24000            # Target sample rate (Hz), mono, 16-bit PCM
+SAMPLE_RATE = 24000  # Target sample rate (Hz), mono, 16-bit PCM
 
 SIL_START_RE = re.compile(r"silence_start:\s*(-?\d+(?:\.\d+)?)")
 SIL_END_RE = re.compile(r"silence_end:\s*(-?\d+(?:\.\d+)?)")
@@ -149,10 +164,12 @@ def convert_segments(seg_files, conv_dir):
     for i, seg_file in enumerate(seg_files):
         base = os.path.splitext(os.path.basename(seg_file))[0]
         out_file = os.path.join(conv_dir, base + "_vc.wav")
-        print("  (%d/%d) Converting %s ..." % (i + 1, count, base))
+        print("  (%d/%d) Converting %s (threads: %d) ..."
+              % (i + 1, count, base, THREADS))
         rc = run([AUDIOCPP_CLI,
                   "--task", "vc",
                   "--model", MODEL_PATH,
+                  "--threads", str(THREADS),
                   "--log",
                   "--audio", seg_file,
                   "--voice-ref", REF_VOICE,
@@ -231,7 +248,8 @@ def main():
         if not seg_files:
             die("No audio segments produced")
 
-        print("[3/4] Run voice conversion on each segment via audiocpp_cli")
+        print("[3/4] Run voice conversion on each segment via audiocpp_cli "
+              "(%d thread(s))" % THREADS)
         converted = convert_segments(seg_files, conv_dir)
 
         print("[4/4] Merge converted segments into %s" % OUTPUT_FILE)
