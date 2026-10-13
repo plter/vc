@@ -12,15 +12,29 @@ A one-command **Tone Color Voice Conversion** CLI tool, packaged as a Docker ima
 input audio (m4a / mp3 / wav / ...)
         │
         ▼
-[1/2] ffmpeg          → resample to 24 kHz, mono, 16-bit PCM wav
+[1/4] ffmpeg          → resample to 24 kHz, mono, 16-bit PCM wav
         │
         ▼
-[2/2] audiocpp_cli    → voice conversion (--task vc) with the
-                        Tone-Color-VC model + built-in reference voice
+[2/4] split           → detect pauses (ffmpeg silencedetect) and cut the
+                        audio at the midpoint of each pause
+        │
+        ▼
+[3/4] audiocpp_cli    → voice conversion (--task vc) with the
+                        Tone-Color-VC model + built-in reference voice,
+                        one segment at a time
+        │
+        ▼
+[4/4] ffmpeg concat   → merge the converted segments back together
         │
         ▼
 vc_out.wav
 ```
+
+Splitting at detected pauses lets `vc` process long recordings piece by piece
+instead of feeding the whole file to the model at once. Each cut falls in the
+middle of a pause, so half of it stays on each side and the seams sound
+natural; pieces shorter than 1 second are automatically merged with their
+neighbors.
 
 ## Quick Start (Prebuilt Image)
 
@@ -84,15 +98,28 @@ The target voice (the voice your audio will be converted **to**) is `audioref/au
 | Path | Description |
 | --- | --- |
 | `Dockerfile` | Image build: ubuntu 24.04 + ffmpeg + audio.cpp + Tone-Color-VC model |
-| `main.sh` | Container entrypoint: ffmpeg preprocessing → audiocpp_cli inference |
+| `main.py` | Container entrypoint: ffmpeg preprocessing → pause detection & splitting → per-segment audiocpp_cli inference → concat |
 | `audioref/audio.wav` | Built-in reference voice (conversion target timbre) |
 | `LICENSE` | MIT License |
+
+## Tuning & Debugging
+
+Split behavior (silence threshold, minimum pause length, minimum segment
+length, etc.) is configured via the constants at the top of `main.py`.
+
+To keep the temporary working directory (`_vc_work/`, written to the mounted
+`/work` directory) for inspection — it contains the raw segments, converted
+segments, detected cut points and segment boundaries — run with `KEEP_WORK=1`:
+
+```shell
+docker run --rm -ti -e KEEP_WORK=1 -v `pwd`:/work xtiqin/vc Untitled.m4a
+```
 
 ## Credits
 
 - [audio.cpp](https://github.com/0xShug0/audio.cpp) — high-performance audio inference engine
 - [Tone-Color-VC GGUF model](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) — hosted on ModelScope
-- [ffmpeg](https://ffmpeg.org/) — audio preprocessing
+- [ffmpeg](https://ffmpeg.org/) — audio preprocessing, pause detection and segment concatenation
 
 ## Disclaimer
 

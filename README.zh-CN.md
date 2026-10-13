@@ -12,15 +12,24 @@
 输入音频(m4a / mp3 / wav / ...)
         │
         ▼
-[1/2] ffmpeg          → 重采样为 24 kHz、单声道、16bit PCM wav
+[1/4] ffmpeg          → 重采样为 24 kHz、单声道、16bit PCM wav
         │
         ▼
-[2/2] audiocpp_cli    → 使用 Tone-Color-VC 模型 + 内置参考音色
-                        执行音色转换(--task vc)
+[2/4] 分段            → 通过 ffmpeg silencedetect 检测停顿,
+                        在每段停顿的中点切分音频
+        │
+        ▼
+[3/4] audiocpp_cli    → 使用 Tone-Color-VC 模型 + 内置参考音色,
+                        逐段执行音色转换(--task vc)
+        │
+        ▼
+[4/4] ffmpeg concat   → 将转换后的分段拼接回完整音频
         │
         ▼
 vc_out.wav
 ```
+
+通过在停顿处切分,`vc` 可以分段处理长音频,而不必把整个文件一次性送入模型。每个切点都落在停顿的正中间,两侧各保留一半停顿,拼接处听感自然;短于 1 秒的片段会自动并入相邻片段。
 
 ## 快速开始(预构建镜像)
 
@@ -84,15 +93,25 @@ docker run --rm -ti -v `pwd`:/work vc Untitled.m4a
 | 路径 | 说明 |
 | --- | --- |
 | `Dockerfile` | 镜像构建:ubuntu 24.04 + ffmpeg + audio.cpp + Tone-Color-VC 模型 |
-| `main.sh` | 容器入口脚本:ffmpeg 预处理 → audiocpp_cli 推理 |
+| `main.py` | 容器入口脚本:ffmpeg 预处理 → 停顿检测与分段 → 逐段 audiocpp_cli 推理 → 拼接 |
 | `audioref/audio.wav` | 内置参考音色(转换目标音色) |
 | `LICENSE` | MIT 许可证 |
+
+## 调参与调试
+
+分段行为(静音阈值、最短停顿时长、最短片段时长等)通过 `main.py` 顶部的常量配置。
+
+如需保留临时工作目录(`_vc_work/`,写入挂载的 `/work` 目录)以便检查——其中包含原始分段、转换后分段、检测到的切点及分段边界——运行时加上 `KEEP_WORK=1`:
+
+```shell
+docker run --rm -ti -e KEEP_WORK=1 -v `pwd`:/work xtiqin/vc Untitled.m4a
+```
 
 ## 致谢
 
 - [audio.cpp](https://github.com/0xShug0/audio.cpp) —— 高性能音频推理引擎
 - [Tone-Color-VC GGUF 模型](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) —— 由 ModelScope 托管
-- [ffmpeg](https://ffmpeg.org/) —— 音频预处理
+- [ffmpeg](https://ffmpeg.org/) —— 音频预处理、停顿检测与分段拼接
 
 ## 免责声明
 
