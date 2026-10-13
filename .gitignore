@@ -3,3 +3,4 @@
 *.pyc
 .venv
 tmpfiles
+vcui_config.json
