@@ -165,9 +165,16 @@ def convert_segments(seg_files, conv_dir):
 
 def concat_segments(converted_files, list_file, output_file):
     """Merge converted segments into the final output via ffmpeg concat."""
+    # ffmpeg's concat demuxer resolves relative paths inside the list file
+    # against the list file's own directory (not the process cwd), so write
+    # entries relative to that directory, using forward slashes (accepted on
+    # every platform, and avoids the backslash-escape problem on Windows).
+    list_dir = os.path.dirname(os.path.abspath(list_file))
     with open(list_file, "w", encoding="utf-8") as f:
         for path in converted_files:
-            f.write("file '%s'\n" % path.replace("'", "'\\''"))
+            rel = os.path.relpath(os.path.abspath(path), list_dir)
+            f.write("file '%s'\n"
+                    % rel.replace(os.sep, "/").replace("'", "'\\''"))
     rc = run(["ffmpeg", "-y", "-f", "concat", "-safe", "0",
               "-i", list_file, "-c", "copy", output_file])
     if rc != 0:
