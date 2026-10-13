@@ -16,9 +16,9 @@ import subprocess
 import sys
 
 # Configuration section, modify these variables according to your environment
-AUDIOCPP_CLI = "/tcvc/apps/audiocpp/audiocpp_cli"
-MODEL_PATH = "/tcvc/models/tone-color-vc-f32.gguf"
-REF_VOICE = "/tcvc/audioref/audio.wav"
+AUDIOCPP_CLI = "/vc/apps/audiocpp/audiocpp_cli"
+MODEL_PATH = "/vc/models/tone-color-vc-f32.gguf"
+REF_VOICE = "/vc/audioref/audio.wav"
 OUTPUT_FILE = "vc_out.wav"
 
 # Split configuration

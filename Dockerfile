@@ -12,19 +12,19 @@ ENV LC_ALL=zh_CN.UTF-8
 RUN apt install -y python3 ffmpeg
 
 ENV AUDIO_CPP_VERSION=v0.9.1
-RUN mkdir -p /tcvc/apps
-WORKDIR /tcvc/apps
+RUN mkdir -p /vc/apps
+WORKDIR /vc/apps
 RUN curl -L -o audiocpp.tar.gz https://github.com/0xShug0/audio.cpp/releases/download/$AUDIO_CPP_VERSION/audio-$AUDIO_CPP_VERSION-bin-ubuntu-x64-cpu-portable.tar.gz
 RUN mkdir -p ./audiocpp
 RUN tar xzvf audiocpp.tar.gz -C ./audiocpp
 
-RUN mkdir -p /tcvc/models
-WORKDIR /tcvc/models
+RUN mkdir -p /vc/models
+WORKDIR /vc/models
 RUN curl -L -O https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf/resolve/master/Tone-Color-VC-GGUF/tone-color-vc-f32.gguf
 
 WORKDIR /work
-COPY audioref /tcvc/audioref
-ENV PATH=$PATH:/tcvc/apps/audiocpp
-COPY main.py /tcvc
-RUN chmod +x /tcvc/main.py
-ENTRYPOINT ["/tcvc/main.py"]
+COPY audioref /vc/audioref
+ENV PATH=$PATH:/vc/apps/audiocpp
+COPY main.py /vc
+RUN chmod +x /vc/main.py
+ENTRYPOINT ["/vc/main.py"]

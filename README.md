@@ -1,10 +1,10 @@
-# tcvc
+# vc
 
 **English** | [简体中文](README.zh-CN.md)
 
 A one-command **Tone Color Voice Conversion** CLI tool, packaged as a Docker image.
 
-`tcvc` converts any audio file into the timbre (tone color) of a reference voice, running entirely on CPU. It bundles [audio.cpp](https://github.com/0xShug0/audio.cpp) with the [Tone-Color-VC](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) GGUF model and `ffmpeg`, so you don't need to install Python, PyTorch, or anything else.
+`vc` converts any audio file into the timbre (tone color) of a reference voice, running entirely on CPU. It bundles [audio.cpp](https://github.com/0xShug0/audio.cpp) with the [Tone-Color-VC](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) GGUF model and `ffmpeg`, so you don't need to install Python, PyTorch, or anything else.
 
 ## How It Works
 
@@ -29,19 +29,19 @@ Run the following command in the directory that contains your source audio file:
 **Linux / macOS / Git Bash:**
 
 ```shell
-docker run --rm -ti -v `pwd`:/work xtiqin/tcvc Untitled.m4a
+docker run --rm -ti -v `pwd`:/work xtiqin/vc Untitled.m4a
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-docker run --rm -ti -v ${PWD}:/work xtiqin/tcvc Untitled.m4a
+docker run --rm -ti -v ${PWD}:/work xtiqin/vc Untitled.m4a
 ```
 
 **Windows CMD:**
 
 ```bat
-docker run --rm -ti -v %cd%:/work xtiqin/tcvc Untitled.m4a
+docker run --rm -ti -v %cd%:/work xtiqin/vc Untitled.m4a
 ```
 
 > **Note (Apple Silicon / ARM machines):** the bundled audio.cpp binary and model are built for `linux/amd64`. Add `--platform linux/amd64` to the command; it will run under emulation and be slower.
@@ -55,9 +55,9 @@ The container accepts **exactly one argument**: the path of the source audio fil
 ## Build the Image Yourself
 
 ```shell
-git clone https://github.com/plter/tcvc.git
-cd tcvc
-docker build -t tcvc .
+git clone https://github.com/plter/vc.git
+cd vc
+docker build -t vc .
 ```
 
 The build will:
@@ -69,7 +69,7 @@ The build will:
 Then run it the same way as the prebuilt image:
 
 ```shell
-docker run --rm -ti -v `pwd`:/work tcvc Untitled.m4a
+docker run --rm -ti -v `pwd`:/work vc Untitled.m4a
 ```
 
 ## Changing the Reference Voice

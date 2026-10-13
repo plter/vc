@@ -1,10 +1,10 @@
-# tcvc
+# vc
 
 [English](README.md) | **简体中文**
 
 一条命令即可使用的**音色转换(Voice Conversion)**工具,以 Docker 镜像形式交付。
 
-`tcvc` 可以把任意音频文件转换成参考音频的音色,纯 CPU 运行。镜像内封装了 [audio.cpp](https://github.com/0xShug0/audio.cpp)、[Tone-Color-VC](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) GGUF 模型和 `ffmpeg`,无需安装 Python、PyTorch 等任何环境。
+`vc` 可以把任意音频文件转换成参考音频的音色,纯 CPU 运行。镜像内封装了 [audio.cpp](https://github.com/0xShug0/audio.cpp)、[Tone-Color-VC](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) GGUF 模型和 `ffmpeg`,无需安装 Python、PyTorch 等任何环境。
 
 ## 工作原理
 
@@ -29,19 +29,19 @@ vc_out.wav
 **Linux / macOS / Git Bash:**
 
 ```shell
-docker run --rm -ti -v `pwd`:/work xtiqin/tcvc Untitled.m4a
+docker run --rm -ti -v `pwd`:/work xtiqin/vc Untitled.m4a
 ```
 
 **Windows PowerShell:**
 
 ```powershell
-docker run --rm -ti -v ${PWD}:/work xtiqin/tcvc Untitled.m4a
+docker run --rm -ti -v ${PWD}:/work xtiqin/vc Untitled.m4a
 ```
 
 **Windows CMD:**
 
 ```bat
-docker run --rm -ti -v %cd%:/work xtiqin/tcvc Untitled.m4a
+docker run --rm -ti -v %cd%:/work xtiqin/vc Untitled.m4a
 ```
 
 > **注意(Apple Silicon / ARM 机器):** 镜像内的 audio.cpp 二进制和模型为 `linux/amd64` 构建,需要在命令中加上 `--platform linux/amd64`,以模拟方式运行,速度会较慢。
@@ -55,9 +55,9 @@ docker run --rm -ti -v %cd%:/work xtiqin/tcvc Untitled.m4a
 ## 自行构建镜像
 
 ```shell
-git clone https://github.com/plter/tcvc.git
-cd tcvc
-docker build -t tcvc .
+git clone https://github.com/plter/vc.git
+cd vc
+docker build -t vc .
 ```
 
 构建过程会:
@@ -69,7 +69,7 @@ docker build -t tcvc .
 构建完成后,运行方式与预构建镜像相同:
 
 ```shell
-docker run --rm -ti -v `pwd`:/work tcvc Untitled.m4a
+docker run --rm -ti -v `pwd`:/work vc Untitled.m4a
 ```
 
 ## 更换目标音色
