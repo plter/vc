@@ -20,7 +20,7 @@ RUN tar xzvf audiocpp.tar.gz -C ./audiocpp
 
 RUN mkdir -p /vc/models
 WORKDIR /vc/models
-RUN curl -L -O https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf/resolve/master/Tone-Color-VC-GGUF/tone-color-vc-f32.gguf
+RUN curl -L -o vcmodel.gguf https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf/resolve/master/Tone-Color-VC-GGUF/tone-color-vc-f32.gguf
 
 WORKDIR /work
 COPY audioref /vc/audioref
