@@ -2,9 +2,18 @@
 
 [English](README.md) | **简体中文**
 
-一条命令即可使用的**音色转换(Voice Conversion)**工具,以 Docker 镜像形式交付。
+一条命令即可使用的**音色转换(Voice Conversion)**工具,以 Docker 镜像形式交付,提供两种模型版本。
 
-`vc` 可以把任意音频文件转换成参考音频的音色,纯 CPU 运行。镜像内封装了 [audio.cpp](https://github.com/0xShug0/audio.cpp)、[Tone-Color-VC](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) GGUF 模型和 `ffmpeg`,无需安装 Python、PyTorch 等任何环境。
+`vc` 可以把任意音频文件转换成参考音频的音色,纯 CPU 运行。镜像内封装了 [audio.cpp](https://github.com/0xShug0/audio.cpp)、GGUF 音色转换模型和 `ffmpeg`,无需安装 Python、PyTorch 等任何环境。
+
+### 镜像版本
+
+| 镜像标签 | 模型 | 说明 |
+| --- | --- | --- |
+| `xtiqin/vc` | [Tone-Color-VC](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) | 默认(latest)标签,使用 `tone-color-vc-f32.gguf` |
+| `xtiqin/vc:seedvc` | [Seed-VC](https://github.com/Plachtaa/seed-vc) | 使用 `seed-vc-mlx-q8_0.gguf`,可选的转换模型 |
+
+两个镜像的入口脚本和用法完全相同,只需选择想要的标签即可。
 
 ## 工作原理
 
@@ -19,7 +28,8 @@
                         在每段停顿的中点切分音频
         │
         ▼
-[3/4] audiocpp_cli    → 使用 Tone-Color-VC 模型 + 内置参考音色,
+[3/4] audiocpp_cli    → 使用镜像内置模型(依镜像标签而定:
+                        Tone-Color-VC 或 Seed-VC)+ 内置参考音色,
                         逐段执行音色转换(--task vc)
         │
         ▼
@@ -55,6 +65,12 @@ docker run --rm -ti -v %cd%:/work xtiqin/vc Untitled.m4a
 
 > **注意(Apple Silicon / ARM 机器):** 镜像内的 audio.cpp 二进制和模型为 `linux/amd64` 构建,需要在命令中加上 `--platform linux/amd64`,以模拟方式运行,速度会较慢。
 
+如需改用 **Seed-VC** 模型,执行相同的命令并换成 `seedvc` 标签即可:
+
+```shell
+docker run --rm -ti -v `pwd`:/work xtiqin/vc:seedvc Untitled.m4a
+```
+
 转换完成后,结果输出到同一目录(即挂载到 `/work` 的目录)下的 `vc_out.wav`。
 
 ### 参数说明
@@ -66,19 +82,21 @@ docker run --rm -ti -v %cd%:/work xtiqin/vc Untitled.m4a
 ```shell
 git clone https://github.com/plter/vc.git
 cd vc
-docker build -t vc .
+docker build -t vc .                               # Tone-Color-VC 模型(默认)
+docker build -f Dockerfile-seedvc -t vc:seedvc .   # Seed-VC 模型
 ```
 
 构建过程会:
 
 1. 在 `ubuntu:24.04` 上安装 `ffmpeg` 和中文语言环境
 2. 从 GitHub Releases 下载 audio.cpp CLI(v0.9.1,CPU 便携版,x64)
-3. 从 ModelScope 下载 `tone-color-vc-f32.gguf` 模型
+3. 从 ModelScope 下载模型:默认镜像下载 `tone-color-vc-f32.gguf`,`seedvc` 镜像下载 `seed-vc-mlx-q8_0.gguf`
 
 构建完成后,运行方式与预构建镜像相同:
 
 ```shell
-docker run --rm -ti -v `pwd`:/work vc Untitled.m4a
+docker run --rm -ti -v `pwd`:/work vc Untitled.m4a          # Tone-Color-VC
+docker run --rm -ti -v `pwd`:/work vc:seedvc Untitled.m4a   # Seed-VC
 ```
 
 ## 更换目标音色
@@ -92,7 +110,8 @@ docker run --rm -ti -v `pwd`:/work vc Untitled.m4a
 
 | 路径 | 说明 |
 | --- | --- |
-| `Dockerfile` | 镜像构建:ubuntu 24.04 + ffmpeg + audio.cpp + Tone-Color-VC 模型 |
+| `Dockerfile` | 镜像构建(`xtiqin/vc`):ubuntu 24.04 + ffmpeg + audio.cpp + Tone-Color-VC 模型 |
+| `Dockerfile-seedvc` | 镜像构建(`xtiqin/vc:seedvc`):相同基础环境,使用 Seed-VC 模型 |
 | `main.py` | 容器入口脚本:ffmpeg 预处理 → 停顿检测与分段 → 逐段 audiocpp_cli 推理 → 拼接 |
 | `audioref/audio.wav` | 内置参考音色(转换目标音色) |
 | `LICENSE` | MIT 许可证 |
@@ -111,6 +130,7 @@ docker run --rm -ti -e KEEP_WORK=1 -v `pwd`:/work xtiqin/vc Untitled.m4a
 
 - [audio.cpp](https://github.com/0xShug0/audio.cpp) —— 高性能音频推理引擎
 - [Tone-Color-VC GGUF 模型](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) —— 由 ModelScope 托管
+- [Seed-VC](https://github.com/Plachtaa/seed-vc) —— 可选的转换模型([GGUF 版本](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf)由 ModelScope 托管)
 - [ffmpeg](https://ffmpeg.org/) —— 音频预处理、停顿检测与分段拼接
 
 ## 免责声明

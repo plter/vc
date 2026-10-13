@@ -2,9 +2,18 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-A one-command **Tone Color Voice Conversion** CLI tool, packaged as a Docker image.
+A one-command **Voice Conversion** CLI tool, packaged as a Docker image with two model variants.
 
-`vc` converts any audio file into the timbre (tone color) of a reference voice, running entirely on CPU. It bundles [audio.cpp](https://github.com/0xShug0/audio.cpp) with the [Tone-Color-VC](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) GGUF model and `ffmpeg`, so you don't need to install Python, PyTorch, or anything else.
+`vc` converts any audio file into the timbre (tone color) of a reference voice, running entirely on CPU. It bundles [audio.cpp](https://github.com/0xShug0/audio.cpp), a GGUF voice conversion model and `ffmpeg`, so you don't need to install Python, PyTorch, or anything else.
+
+### Image Variants
+
+| Image Tag | Model | Notes |
+| --- | --- | --- |
+| `xtiqin/vc` | [Tone-Color-VC](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) | Default (latest) tag, `tone-color-vc-f32.gguf` |
+| `xtiqin/vc:seedvc` | [Seed-VC](https://github.com/Plachtaa/seed-vc) | `seed-vc-mlx-q8_0.gguf`, an alternative conversion model |
+
+Both images share the same entrypoint and usage — just pick the tag you want.
 
 ## How It Works
 
@@ -19,9 +28,10 @@ input audio (m4a / mp3 / wav / ...)
                         audio at the midpoint of each pause
         │
         ▼
-[3/4] audiocpp_cli    → voice conversion (--task vc) with the
-                        Tone-Color-VC model + built-in reference voice,
-                        one segment at a time
+[3/4] audiocpp_cli    → voice conversion (--task vc) with the bundled
+                        model (Tone-Color-VC or Seed-VC, depending on the
+                        image tag) + built-in reference voice, one segment
+                        at a time
         │
         ▼
 [4/4] ffmpeg concat   → merge the converted segments back together
@@ -60,6 +70,12 @@ docker run --rm -ti -v %cd%:/work xtiqin/vc Untitled.m4a
 
 > **Note (Apple Silicon / ARM machines):** the bundled audio.cpp binary and model are built for `linux/amd64`. Add `--platform linux/amd64` to the command; it will run under emulation and be slower.
 
+To use the **Seed-VC** model instead, run the same command with the `seedvc` tag:
+
+```shell
+docker run --rm -ti -v `pwd`:/work xtiqin/vc:seedvc Untitled.m4a
+```
+
 When it finishes, the converted audio is written to `vc_out.wav` in the same directory (i.e. the directory mounted to `/work`).
 
 ### Arguments
@@ -71,19 +87,21 @@ The container accepts **exactly one argument**: the path of the source audio fil
 ```shell
 git clone https://github.com/plter/vc.git
 cd vc
-docker build -t vc .
+docker build -t vc .                          # Tone-Color-VC model (default)
+docker build -f Dockerfile-seedvc -t vc:seedvc .   # Seed-VC model
 ```
 
 The build will:
 
 1. Install `ffmpeg` and the Chinese locale on `ubuntu:24.04`
 2. Download the audio.cpp CLI (v0.9.1, CPU portable, x64) from GitHub Releases
-3. Download the `tone-color-vc-f32.gguf` model from ModelScope
+3. Download the model from ModelScope: `tone-color-vc-f32.gguf` for the default image, or `seed-vc-mlx-q8_0.gguf` for the `seedvc` image
 
 Then run it the same way as the prebuilt image:
 
 ```shell
-docker run --rm -ti -v `pwd`:/work vc Untitled.m4a
+docker run --rm -ti -v `pwd`:/work vc Untitled.m4a          # Tone-Color-VC
+docker run --rm -ti -v `pwd`:/work vc:seedvc Untitled.m4a   # Seed-VC
 ```
 
 ## Changing the Reference Voice
@@ -97,7 +115,8 @@ The target voice (the voice your audio will be converted **to**) is `audioref/au
 
 | Path | Description |
 | --- | --- |
-| `Dockerfile` | Image build: ubuntu 24.04 + ffmpeg + audio.cpp + Tone-Color-VC model |
+| `Dockerfile` | Image build (`xtiqin/vc`): ubuntu 24.04 + ffmpeg + audio.cpp + Tone-Color-VC model |
+| `Dockerfile-seedvc` | Image build (`xtiqin/vc:seedvc`): same base with the Seed-VC model |
 | `main.py` | Container entrypoint: ffmpeg preprocessing → pause detection & splitting → per-segment audiocpp_cli inference → concat |
 | `audioref/audio.wav` | Built-in reference voice (conversion target timbre) |
 | `LICENSE` | MIT License |
@@ -119,6 +138,7 @@ docker run --rm -ti -e KEEP_WORK=1 -v `pwd`:/work xtiqin/vc Untitled.m4a
 
 - [audio.cpp](https://github.com/0xShug0/audio.cpp) — high-performance audio inference engine
 - [Tone-Color-VC GGUF model](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) — hosted on ModelScope
+- [Seed-VC](https://github.com/Plachtaa/seed-vc) — alternative conversion model ([GGUF port](https://www.modelscope.cn/models/audio-cpp/audio.cpp-gguf) hosted on ModelScope)
 - [ffmpeg](https://ffmpeg.org/) — audio preprocessing, pause detection and segment concatenation
 
 ## Disclaimer
