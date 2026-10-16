@@ -4,7 +4,8 @@
 main.py 转换流水线的窗体版本:
   1. ffmpeg 将输入音频和参考音频转成标准 wav (采样率可选 24000/22050Hz, 单声道, 16bit PCM)
   2. silencedetect 按停顿切分音频
-  3. audiocpp_cli 对每个分段做音色转换 (计算后端可选: cpu/cuda/hip/rocm/vulkan/metal/best)
+  3. audiocpp_cli 对每个分段做音色转换 (计算后端可选: cpu/cuda/hip/rocm/vulkan/metal/best;
+     线程数可选: 自动=CPU 核心数, 或 1~512)
   4. ffmpeg concat 合并为输出文件
 
 所有路径选项保存在 vcui_config.json (与本文件同目录), 下次启动自动恢复。
@@ -36,6 +37,10 @@ SAMPLE_RATE_OPTIONS = [24000, 22050]  # 可选采样率 (Hz)
 DEFAULT_SAMPLE_RATE = SAMPLE_RATE_OPTIONS[0]
 BACKEND_OPTIONS = ["cpu", "cuda", "hip", "rocm", "vulkan", "metal", "best"]
 DEFAULT_BACKEND = BACKEND_OPTIONS[0]
+THREADS_AUTO = "自动"  # 自动模式: 使用 CPU 核心数作为线程数
+THREADS_OPTIONS = [THREADS_AUTO,
+                   "1", "2", "4", "8", "16", "32", "64", "128", "256", "512"]
+DEFAULT_THREADS = THREADS_AUTO
 
 SIL_START_RE = re.compile(r"silence_start:\s*(-?\d+(?:\.\d+)?)")
 SIL_END_RE = re.compile(r"silence_end:\s*(-?\d+(?:\.\d+)?)")
@@ -71,6 +76,7 @@ def default_config():
         "output": os.path.join(SCRIPT_DIR, "vc_out.wav"),
         "sample_rate": str(DEFAULT_SAMPLE_RATE),
         "backend": DEFAULT_BACKEND,
+        "threads": DEFAULT_THREADS,
     }
 
 
@@ -91,7 +97,12 @@ class Converter:
         self.output = cfg["output"]
         self.sample_rate = int(cfg.get("sample_rate") or DEFAULT_SAMPLE_RATE)
         self.backend = cfg.get("backend") or DEFAULT_BACKEND
-        self.threads = detect_cpu_threads()
+        threads_cfg = cfg.get("threads") or DEFAULT_THREADS
+        # 自动模式 (或非法值) 使用 CPU 核心数, 否则使用用户选择的固定线程数
+        self.threads = (int(threads_cfg)
+                        if threads_cfg in THREADS_OPTIONS
+                        and threads_cfg != THREADS_AUTO
+                        else detect_cpu_threads())
         self.log = log
         self.should_cancel = should_cancel
         self._proc = None
@@ -403,6 +414,8 @@ class App:
             cfg["sample_rate"] = str(DEFAULT_SAMPLE_RATE)
         if cfg["backend"] not in BACKEND_OPTIONS:
             cfg["backend"] = DEFAULT_BACKEND
+        if cfg["threads"] not in THREADS_OPTIONS:
+            cfg["threads"] = DEFAULT_THREADS
         return cfg
 
     def save_config(self):
@@ -451,6 +464,12 @@ class App:
             btns, textvariable=self.backend_var, state="readonly",
             values=BACKEND_OPTIONS, width=8)
         self.backend_combo.pack(side=tk.LEFT, padx=(4, 12))
+        ttk.Label(btns, text="线程数:").pack(side=tk.LEFT)
+        self.threads_var = tk.StringVar()
+        self.threads_combo = ttk.Combobox(
+            btns, textvariable=self.threads_var, state="readonly",
+            values=THREADS_OPTIONS, width=6)
+        self.threads_combo.pack(side=tk.LEFT, padx=(4, 12))
         self.convert_btn = ttk.Button(btns, text="转换", command=self.on_convert)
         self.convert_btn.pack(side=tk.LEFT)
         self.cancel_btn = ttk.Button(
@@ -477,6 +496,7 @@ class App:
         self.sample_rate_var.set(
             self.cfg.get("sample_rate", str(DEFAULT_SAMPLE_RATE)))
         self.backend_var.set(self.cfg.get("backend", DEFAULT_BACKEND))
+        self.threads_var.set(self.cfg.get("threads", DEFAULT_THREADS))
 
     def browse(self, key):
         current = self.entries[key].get()
@@ -540,6 +560,7 @@ class App:
                for key, _ in self.FIELDS}
         cfg["sample_rate"] = self.sample_rate_var.get()
         cfg["backend"] = self.backend_var.get()
+        cfg["threads"] = self.threads_var.get()
         self.cfg = cfg
         return cfg
 
