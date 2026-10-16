@@ -38,8 +38,7 @@ DEFAULT_SAMPLE_RATE = SAMPLE_RATE_OPTIONS[0]
 BACKEND_OPTIONS = ["cpu", "cuda", "hip", "rocm", "vulkan", "metal", "best"]
 DEFAULT_BACKEND = BACKEND_OPTIONS[0]
 THREADS_AUTO = "自动"  # 自动模式: 使用 CPU 核心数作为线程数
-THREADS_OPTIONS = [THREADS_AUTO,
-                   "1", "2", "4", "8", "16", "32", "64", "128", "256", "512"]
+THREADS_OPTIONS = [THREADS_AUTO, "1", "2", "4", "8", "16", "32", "64", "128", "256", "512"]
 DEFAULT_THREADS = THREADS_AUTO
 
 SIL_START_RE = re.compile(r"silence_start:\s*(-?\d+(?:\.\d+)?)")
@@ -101,7 +100,7 @@ class Converter:
         # 自动模式 (或非法值) 使用 CPU 核心数, 否则使用用户选择的固定线程数
         self.threads = (int(threads_cfg)
                         if threads_cfg in THREADS_OPTIONS
-                        and threads_cfg != THREADS_AUTO
+                           and threads_cfg != THREADS_AUTO
                         else detect_cpu_threads())
         self.log = log
         self.should_cancel = should_cancel
