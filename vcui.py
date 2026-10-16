@@ -2,7 +2,7 @@
 """音色转换图形界面 (vcui)。
 
 main.py 转换流水线的窗体版本:
-  1. ffmpeg 将输入音频转成标准 wav (采样率可选 24000/22050Hz, 单声道, 16bit PCM)
+  1. ffmpeg 将输入音频和参考音频转成标准 wav (采样率可选 24000/22050Hz, 单声道, 16bit PCM)
   2. silencedetect 按停顿切分音频
   3. audiocpp_cli 对每个分段做音色转换
   4. ffmpeg concat 合并为输出文件
@@ -141,6 +141,15 @@ class Converter:
 
     # ---------- 流水线各阶段 ----------
 
+    def standardize_wav(self, src, dst, desc):
+        """将音频转为标准 wav (选定采样率 / 单声道 / 16bit PCM), 失败则抛异常。"""
+        if self.run_logged(
+                [self.ffmpeg, "-y", "-i", src,
+                 "-ar", str(self.sample_rate), "-ac", "1",
+                 "-sample_fmt", "s16", dst],
+                desc) != 0:
+            raise RuntimeError("%s 失败" % desc)
+
     def probe_duration(self, path):
         try:
             proc = subprocess.run(
@@ -236,7 +245,7 @@ class Converter:
             files.append(seg_file)
         return files
 
-    def convert_segments(self, seg_files, conv_dir):
+    def convert_segments(self, seg_files, conv_dir, ref_wav):
         converted = []
         count = len(seg_files)
         for i, seg_file in enumerate(seg_files):
@@ -252,7 +261,7 @@ class Converter:
                  "--threads", str(self.threads),
                  "--log",
                  "--audio", seg_file,
-                 "--voice-ref", self.ref,
+                 "--voice-ref", ref_wav,
                  "--out", out_file],
                 "audiocpp_cli 转换分段 %s" % base)
             if rc != 0:
@@ -283,6 +292,7 @@ class Converter:
         os.makedirs(seg_dir)
         os.makedirs(conv_dir)
         tmp_raw_wav = os.path.join(work_dir, "_tmp_source.wav")
+        tmp_ref_wav = os.path.join(work_dir, "_tmp_ref.wav")
 
         try:
             self.log("=" * 60)
@@ -293,12 +303,9 @@ class Converter:
 
             self.log("[1/4] 将输入音频转为标准 wav: %dHz, 单声道, 16bit PCM"
                      % self.sample_rate)
-            if self.run_logged(
-                    [self.ffmpeg, "-y", "-i", self.source,
-                     "-ar", str(self.sample_rate), "-ac", "1",
-                     "-sample_fmt", "s16", tmp_raw_wav],
-                    "ffmpeg 音频标准化") != 0:
-                raise RuntimeError("ffmpeg 音频标准化失败")
+            self.standardize_wav(self.source, tmp_raw_wav, "ffmpeg 输入音频标准化")
+            self.log("将参考音频转为相同规格的标准 wav (防止采样率不匹配)")
+            self.standardize_wav(self.ref, tmp_ref_wav, "ffmpeg 参考音频标准化")
 
             self.log("[2/4] 检测停顿并切分音频")
             total_duration = self.probe_duration(tmp_raw_wav)
@@ -318,7 +325,7 @@ class Converter:
 
             self.log("[3/4] 使用 audiocpp_cli 逐段转换音色 (%d 线程)"
                      % self.threads)
-            converted = self.convert_segments(seg_files, conv_dir)
+            converted = self.convert_segments(seg_files, conv_dir, tmp_ref_wav)
 
             self.log("[4/4] 合并转换后的分段到 %s" % self.output)
             out_dir = os.path.dirname(os.path.abspath(self.output))
