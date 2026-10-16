@@ -108,9 +108,14 @@ class Converter:
                 except OSError:
                     pass
 
+    @staticmethod
+    def format_cmd(cmd):
+        """把命令参数列表格式化为可参考/复制执行的命令行字符串。"""
+        return " ".join('"%s"' % c if " " in c else c for c in cmd)
+
     def run_logged(self, cmd, desc):
         """运行命令, 实时把输出写入日志; 返回 exit code。"""
-        self.log("$ " + " ".join('"%s"' % c if " " in c else c for c in cmd))
+        self.log("$ " + self.format_cmd(cmd))
         self._check_cancel()
         try:
             with self._proc_lock:
@@ -151,11 +156,13 @@ class Converter:
             raise RuntimeError("%s 失败" % desc)
 
     def probe_duration(self, path):
+        cmd = [self.ffprobe, "-v", "error",
+               "-show_entries", "format=duration",
+               "-of", "csv=p=0", path]
+        self.log("$ " + self.format_cmd(cmd))
         try:
             proc = subprocess.run(
-                [self.ffprobe, "-v", "error",
-                 "-show_entries", "format=duration",
-                 "-of", "csv=p=0", path],
+                cmd,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 universal_newlines=True, errors="replace",
                 creationflags=CREATE_NO_WINDOW)
@@ -174,11 +181,13 @@ class Converter:
         rc_holder = {}
 
         def run():
+            cmd = [self.ffmpeg, "-i", wav_path,
+                   "-af", "silencedetect=noise=%s:d=%g"
+                   % (SILENCE_NOISE, SILENCE_MIN_DURATION),
+                   "-f", "null", "-"]
+            self.log("$ " + self.format_cmd(cmd))
             proc = subprocess.Popen(
-                [self.ffmpeg, "-i", wav_path,
-                 "-af", "silencedetect=noise=%s:d=%g"
-                 % (SILENCE_NOISE, SILENCE_MIN_DURATION),
-                 "-f", "null", "-"],
+                cmd,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 universal_newlines=True, errors="replace",
                 creationflags=CREATE_NO_WINDOW)
