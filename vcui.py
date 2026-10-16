@@ -61,7 +61,7 @@ def default_config():
     return {
         "ffmpeg": shutil.which("ffmpeg") or "",
         "ffprobe": shutil.which("ffprobe") or "",
-        "audiocpp": "",
+        "audiocpp": shutil.which("audiocpp_cli") or "",
         "model": "",
         "input": "",
         "ref": ref_default if os.path.isfile(ref_default) else "",
