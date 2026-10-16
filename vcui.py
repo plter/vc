@@ -470,13 +470,15 @@ class App:
             btns, textvariable=self.threads_var, state="readonly",
             values=THREADS_OPTIONS, width=6)
         self.threads_combo.pack(side=tk.LEFT, padx=(4, 12))
-        self.convert_btn = ttk.Button(btns, text="转换", command=self.on_convert)
-        self.convert_btn.pack(side=tk.LEFT)
+        # 三个按钮靠行右侧对齐 (side=RIGHT 时先 pack 的在最右, 故按视觉顺序反向排列)
+        self.clear_log_btn = ttk.Button(
+            btns, text="清除日志", command=self.on_clear_log)
+        self.clear_log_btn.pack(side=tk.RIGHT)
         self.cancel_btn = ttk.Button(
             btns, text="取消", command=self.on_cancel, state=tk.DISABLED)
-        self.cancel_btn.pack(side=tk.LEFT, padx=8)
-        ttk.Button(btns, text="清除日志",
-                   command=self.on_clear_log).pack(side=tk.LEFT)
+        self.cancel_btn.pack(side=tk.RIGHT, padx=8)
+        self.convert_btn = ttk.Button(btns, text="转换", command=self.on_convert)
+        self.convert_btn.pack(side=tk.RIGHT)
 
         self.log_text = scrolledtext.ScrolledText(
             frame, state=tk.DISABLED, wrap=tk.NONE,
