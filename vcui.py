@@ -2,7 +2,7 @@
 """音色转换图形界面 (vcui)。
 
 main.py 转换流水线的窗体版本:
-  1. ffmpeg 将输入音频转成标准 wav (24kHz / 单声道 / 16bit PCM)
+  1. ffmpeg 将输入音频转成标准 wav (采样率可选 24000/22050Hz, 单声道, 16bit PCM)
   2. silencedetect 按停顿切分音频
   3. audiocpp_cli 对每个分段做音色转换
   4. ffmpeg concat 合并为输出文件
@@ -32,7 +32,8 @@ CONFIG_FILE = os.path.join(SCRIPT_DIR, "vcui_config.json")
 SILENCE_NOISE = "-35dB"
 SILENCE_MIN_DURATION = 0.6
 MIN_SEGMENT_DURATION = 1.0
-SAMPLE_RATE = 24000
+SAMPLE_RATE_OPTIONS = [24000, 22050]  # 可选采样率 (Hz)
+DEFAULT_SAMPLE_RATE = SAMPLE_RATE_OPTIONS[0]
 
 SIL_START_RE = re.compile(r"silence_start:\s*(-?\d+(?:\.\d+)?)")
 SIL_END_RE = re.compile(r"silence_end:\s*(-?\d+(?:\.\d+)?)")
@@ -66,6 +67,7 @@ def default_config():
         "input": "",
         "ref": ref_default if os.path.isfile(ref_default) else "",
         "output": os.path.join(SCRIPT_DIR, "vc_out.wav"),
+        "sample_rate": str(DEFAULT_SAMPLE_RATE),
     }
 
 
@@ -84,6 +86,7 @@ class Converter:
         self.source = cfg["input"]
         self.ref = cfg["ref"]
         self.output = cfg["output"]
+        self.sample_rate = int(cfg.get("sample_rate") or DEFAULT_SAMPLE_RATE)
         self.threads = detect_cpu_threads()
         self.log = log
         self.should_cancel = should_cancel
@@ -224,7 +227,7 @@ class Converter:
                  "-ss", "%.3f" % start,
                  "-i", src_wav,
                  "-t", "%.3f" % (end - start),
-                 "-ar", str(SAMPLE_RATE), "-ac", "1", "-sample_fmt", "s16",
+                 "-ar", str(self.sample_rate), "-ac", "1", "-sample_fmt", "s16",
                  seg_file],
                 "ffmpeg 提取分段 %d" % index)
             if rc != 0:
@@ -279,7 +282,7 @@ class Converter:
         conv_dir = os.path.join(work_dir, "converted")
         os.makedirs(seg_dir)
         os.makedirs(conv_dir)
-        tmp_raw_wav = os.path.join(work_dir, "_tmp_source_24k.wav")
+        tmp_raw_wav = os.path.join(work_dir, "_tmp_source.wav")
 
         try:
             self.log("=" * 60)
@@ -289,10 +292,10 @@ class Converter:
             self.log("=" * 60)
 
             self.log("[1/4] 将输入音频转为标准 wav: %dHz, 单声道, 16bit PCM"
-                     % SAMPLE_RATE)
+                     % self.sample_rate)
             if self.run_logged(
                     [self.ffmpeg, "-y", "-i", self.source,
-                     "-ar", str(SAMPLE_RATE), "-ac", "1",
+                     "-ar", str(self.sample_rate), "-ac", "1",
                      "-sample_fmt", "s16", tmp_raw_wav],
                     "ffmpeg 音频标准化") != 0:
                 raise RuntimeError("ffmpeg 音频标准化失败")
@@ -375,6 +378,8 @@ class App:
                         cfg[key] = saved[key]
         except (OSError, ValueError):
             pass
+        if cfg["sample_rate"] not in {str(r) for r in SAMPLE_RATE_OPTIONS}:
+            cfg["sample_rate"] = str(DEFAULT_SAMPLE_RATE)
         return cfg
 
     def save_config(self):
@@ -408,8 +413,17 @@ class App:
                        command=lambda k=key: self.browse(k)).grid(
                 row=row, column=2, sticky=tk.E, pady=3, padx=(8, 0))
 
+        opt_row = len(self.FIELDS)
+        ttk.Label(frame, text="采样率 (Hz):").grid(
+            row=opt_row, column=0, sticky=tk.W, pady=3, padx=(0, 8))
+        self.sample_rate_var = tk.StringVar()
+        self.sample_rate_combo = ttk.Combobox(
+            frame, textvariable=self.sample_rate_var, state="readonly",
+            values=[str(r) for r in SAMPLE_RATE_OPTIONS], width=12)
+        self.sample_rate_combo.grid(row=opt_row, column=1, sticky=tk.W, pady=3)
+
         btns = ttk.Frame(frame)
-        btns.grid(row=len(self.FIELDS), column=0, columnspan=3,
+        btns.grid(row=opt_row + 1, column=0, columnspan=3,
                   sticky=tk.EW, pady=(10, 6))
         self.convert_btn = ttk.Button(btns, text="转换", command=self.on_convert)
         self.convert_btn.pack(side=tk.LEFT)
@@ -422,18 +436,20 @@ class App:
         self.log_text = scrolledtext.ScrolledText(
             frame, state=tk.DISABLED, wrap=tk.NONE,
             font=("Consolas", 9), background="#1e1e1e", foreground="#d4d4d4")
-        self.log_text.grid(row=len(self.FIELDS) + 1, column=0, columnspan=3,
+        self.log_text.grid(row=opt_row + 2, column=0, columnspan=3,
                            sticky=tk.NSEW)
-        frame.rowconfigure(len(self.FIELDS) + 1, weight=1)
+        frame.rowconfigure(opt_row + 2, weight=1)
 
         self.status = tk.StringVar(value="就绪")
         ttk.Label(frame, textvariable=self.status, anchor=tk.W).grid(
-            row=len(self.FIELDS) + 2, column=0, columnspan=3,
+            row=opt_row + 3, column=0, columnspan=3,
             sticky=tk.EW, pady=(6, 0))
 
     def _load_values(self):
         for key, _ in self.FIELDS:
             self.entries[key].set(self.cfg.get(key, ""))
+        self.sample_rate_var.set(
+            self.cfg.get("sample_rate", str(DEFAULT_SAMPLE_RATE)))
 
     def browse(self, key):
         current = self.entries[key].get()
@@ -495,6 +511,7 @@ class App:
     def collect_config(self):
         cfg = {key: self.entries[key].get().strip()
                for key, _ in self.FIELDS}
+        cfg["sample_rate"] = self.sample_rate_var.get()
         self.cfg = cfg
         return cfg
 

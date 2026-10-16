@@ -42,7 +42,7 @@ SILENCE_MIN_DURATION = 0.6  # Minimum pause length (seconds) to trigger a split
 MIN_SEGMENT_DURATION = 1.0  # Segments shorter than this (seconds) get merged with neighbors
 WORK_DIR = "_vc_work"  # Temporary working directory (removed on exit unless KEEP_WORK=1)
 
-SAMPLE_RATE = 24000  # Target sample rate (Hz), mono, 16-bit PCM
+SAMPLE_RATE = 24000  # Target sample rate (Hz), mono, 16-bit PCM; options: 24000 or 22050
 
 SIL_START_RE = re.compile(r"silence_start:\s*(-?\d+(?:\.\d+)?)")
 SIL_END_RE = re.compile(r"silence_end:\s*(-?\d+(?:\.\d+)?)")
