@@ -413,18 +413,15 @@ class App:
                        command=lambda k=key: self.browse(k)).grid(
                 row=row, column=2, sticky=tk.E, pady=3, padx=(8, 0))
 
-        opt_row = len(self.FIELDS)
-        ttk.Label(frame, text="采样率 (Hz):").grid(
-            row=opt_row, column=0, sticky=tk.W, pady=3, padx=(0, 8))
+        btns = ttk.Frame(frame)
+        btns.grid(row=len(self.FIELDS), column=0, columnspan=3,
+                  sticky=tk.EW, pady=(10, 6))
+        ttk.Label(btns, text="采样率 (Hz):").pack(side=tk.LEFT)
         self.sample_rate_var = tk.StringVar()
         self.sample_rate_combo = ttk.Combobox(
-            frame, textvariable=self.sample_rate_var, state="readonly",
-            values=[str(r) for r in SAMPLE_RATE_OPTIONS], width=12)
-        self.sample_rate_combo.grid(row=opt_row, column=1, sticky=tk.W, pady=3)
-
-        btns = ttk.Frame(frame)
-        btns.grid(row=opt_row + 1, column=0, columnspan=3,
-                  sticky=tk.EW, pady=(10, 6))
+            btns, textvariable=self.sample_rate_var, state="readonly",
+            values=[str(r) for r in SAMPLE_RATE_OPTIONS], width=8)
+        self.sample_rate_combo.pack(side=tk.LEFT, padx=(4, 12))
         self.convert_btn = ttk.Button(btns, text="转换", command=self.on_convert)
         self.convert_btn.pack(side=tk.LEFT)
         self.cancel_btn = ttk.Button(
@@ -436,13 +433,13 @@ class App:
         self.log_text = scrolledtext.ScrolledText(
             frame, state=tk.DISABLED, wrap=tk.NONE,
             font=("Consolas", 9), background="#1e1e1e", foreground="#d4d4d4")
-        self.log_text.grid(row=opt_row + 2, column=0, columnspan=3,
+        self.log_text.grid(row=len(self.FIELDS) + 1, column=0, columnspan=3,
                            sticky=tk.NSEW)
-        frame.rowconfigure(opt_row + 2, weight=1)
+        frame.rowconfigure(len(self.FIELDS) + 1, weight=1)
 
         self.status = tk.StringVar(value="就绪")
         ttk.Label(frame, textvariable=self.status, anchor=tk.W).grid(
-            row=opt_row + 3, column=0, columnspan=3,
+            row=len(self.FIELDS) + 2, column=0, columnspan=3,
             sticky=tk.EW, pady=(6, 0))
 
     def _load_values(self):
