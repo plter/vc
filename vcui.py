@@ -4,7 +4,7 @@
 main.py 转换流水线的窗体版本:
   1. ffmpeg 将输入音频和参考音频转成标准 wav (采样率可选 24000/22050Hz, 单声道, 16bit PCM)
   2. silencedetect 按停顿切分音频
-  3. audiocpp_cli 对每个分段做音色转换
+  3. audiocpp_cli 对每个分段做音色转换 (计算后端可选: cpu/cuda/hip/rocm/vulkan/metal/best)
   4. ffmpeg concat 合并为输出文件
 
 所有路径选项保存在 vcui_config.json (与本文件同目录), 下次启动自动恢复。
@@ -34,6 +34,8 @@ SILENCE_MIN_DURATION = 0.6
 MIN_SEGMENT_DURATION = 1.0
 SAMPLE_RATE_OPTIONS = [24000, 22050]  # 可选采样率 (Hz)
 DEFAULT_SAMPLE_RATE = SAMPLE_RATE_OPTIONS[0]
+BACKEND_OPTIONS = ["cpu", "cuda", "hip", "rocm", "vulkan", "metal", "best"]
+DEFAULT_BACKEND = BACKEND_OPTIONS[0]
 
 SIL_START_RE = re.compile(r"silence_start:\s*(-?\d+(?:\.\d+)?)")
 SIL_END_RE = re.compile(r"silence_end:\s*(-?\d+(?:\.\d+)?)")
@@ -68,6 +70,7 @@ def default_config():
         "ref": ref_default if os.path.isfile(ref_default) else "",
         "output": os.path.join(SCRIPT_DIR, "vc_out.wav"),
         "sample_rate": str(DEFAULT_SAMPLE_RATE),
+        "backend": DEFAULT_BACKEND,
     }
 
 
@@ -87,6 +90,7 @@ class Converter:
         self.ref = cfg["ref"]
         self.output = cfg["output"]
         self.sample_rate = int(cfg.get("sample_rate") or DEFAULT_SAMPLE_RATE)
+        self.backend = cfg.get("backend") or DEFAULT_BACKEND
         self.threads = detect_cpu_threads()
         self.log = log
         self.should_cancel = should_cancel
@@ -268,6 +272,7 @@ class Converter:
                  "--task", "vc",
                  "--model", self.model,
                  "--threads", str(self.threads),
+                 "--backend", self.backend,
                  "--log",
                  "--audio", seg_file,
                  "--voice-ref", ref_wav,
@@ -332,8 +337,8 @@ class Converter:
             if not seg_files:
                 raise RuntimeError("没有产生任何音频分段")
 
-            self.log("[3/4] 使用 audiocpp_cli 逐段转换音色 (%d 线程)"
-                     % self.threads)
+            self.log("[3/4] 使用 audiocpp_cli 逐段转换音色 (%d 线程, 后端: %s)"
+                     % (self.threads, self.backend))
             converted = self.convert_segments(seg_files, conv_dir, tmp_ref_wav)
 
             self.log("[4/4] 合并转换后的分段到 %s" % self.output)
@@ -396,6 +401,8 @@ class App:
             pass
         if cfg["sample_rate"] not in {str(r) for r in SAMPLE_RATE_OPTIONS}:
             cfg["sample_rate"] = str(DEFAULT_SAMPLE_RATE)
+        if cfg["backend"] not in BACKEND_OPTIONS:
+            cfg["backend"] = DEFAULT_BACKEND
         return cfg
 
     def save_config(self):
@@ -438,6 +445,12 @@ class App:
             btns, textvariable=self.sample_rate_var, state="readonly",
             values=[str(r) for r in SAMPLE_RATE_OPTIONS], width=8)
         self.sample_rate_combo.pack(side=tk.LEFT, padx=(4, 12))
+        ttk.Label(btns, text="计算后端:").pack(side=tk.LEFT)
+        self.backend_var = tk.StringVar()
+        self.backend_combo = ttk.Combobox(
+            btns, textvariable=self.backend_var, state="readonly",
+            values=BACKEND_OPTIONS, width=8)
+        self.backend_combo.pack(side=tk.LEFT, padx=(4, 12))
         self.convert_btn = ttk.Button(btns, text="转换", command=self.on_convert)
         self.convert_btn.pack(side=tk.LEFT)
         self.cancel_btn = ttk.Button(
@@ -463,6 +476,7 @@ class App:
             self.entries[key].set(self.cfg.get(key, ""))
         self.sample_rate_var.set(
             self.cfg.get("sample_rate", str(DEFAULT_SAMPLE_RATE)))
+        self.backend_var.set(self.cfg.get("backend", DEFAULT_BACKEND))
 
     def browse(self, key):
         current = self.entries[key].get()
@@ -525,6 +539,7 @@ class App:
         cfg = {key: self.entries[key].get().strip()
                for key, _ in self.FIELDS}
         cfg["sample_rate"] = self.sample_rate_var.get()
+        cfg["backend"] = self.backend_var.get()
         self.cfg = cfg
         return cfg
 
