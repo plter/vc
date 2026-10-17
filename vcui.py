@@ -15,6 +15,7 @@ Usage: python vcui.py
 
 import json
 import os
+import platform
 import queue
 import re
 import shutil
@@ -432,6 +433,12 @@ class App:
             style.theme_use("vista" if os.name == "nt" else "clam")
         except tk.TclError:
             pass
+
+        # 顶部条: 右上角显示 Python 版本号
+        header = ttk.Frame(self.root)
+        header.pack(side=tk.TOP, fill=tk.X, padx=10, pady=(6, 0))
+        ttk.Label(header, text="Python %s" % platform.python_version(),
+                  foreground="#888888").pack(side=tk.RIGHT)
 
         frame = ttk.Frame(self.root, padding=10)
         frame.pack(fill=tk.BOTH, expand=True)
